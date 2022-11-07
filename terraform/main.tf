@@ -1,0 +1,3 @@
+module "encryption" {
+  source = "./module"
+}
