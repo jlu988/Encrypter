@@ -119,7 +119,8 @@ func (h *EncryptionHandler) Encode(obj models.EncryptData) (string, error) {
 	encodedMessage := ""
 	for index := 0; index < data.RowSize; index++ {
 		for col := 0; col < len(cipherMatrix); col++ {
-			encodedMessage += cipherMatrix[col][index]
+			char := []byte(cipherMatrix[col][index])[0] + 1
+			encodedMessage += string(char)
 		}
 	}
 
@@ -165,7 +166,10 @@ func (h *EncryptionHandler) Decode(obj models.EncryptData) (string, error) {
 	msgBuffer := ""
 	for index := 0; index < data.RowSize; index++ {
 		for j := 0; j < len(matrixBuffer); j++ {
-			msgBuffer += matrixBuffer[j][index]
+			if matrixBuffer[j][index] != " " {
+				char := []byte(matrixBuffer[j][index])[0] - 1
+				msgBuffer += string(char)
+			}
 		}
 	}
 	decodedMsg := strings.TrimRight(msgBuffer, " ")
