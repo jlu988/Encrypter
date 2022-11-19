@@ -1,8 +1,6 @@
-package domain
+package services
 
 import (
-	"Encrypter/database"
-	"Encrypter/internal"
 	"Encrypter/models"
 	"fmt"
 	"math"
@@ -11,7 +9,7 @@ import (
 	"strings"
 )
 
-type EncryptionHandler struct{}
+type EncryptionServices struct{}
 
 var re = regexp.MustCompile("^[0-9]+")
 
@@ -39,7 +37,7 @@ func validateKey(key []byte) error {
 	return nil
 }
 
-func (h *EncryptionHandler) constructor(obj models.EncryptData) (*models.EncryptDetails, error) {
+func constructor(obj models.EncryptData) (*models.EncryptDetails, error) {
 	data := models.EncryptDetails{}
 	data.ColumnSize = len(obj.Key)
 	data.RowSize = int(math.Ceil(float64(len(obj.Value)) / float64(data.ColumnSize)))
@@ -72,7 +70,7 @@ func (h *EncryptionHandler) constructor(obj models.EncryptData) (*models.Encrypt
 	return &data, nil
 }
 
-func (h *EncryptionHandler) initializeCipherMatrix(msg string, key []int, row, col int) map[int][]string {
+func initializeCipherMatrix(msg string, key []int, row, col int) map[int][]string {
 	keyedCipherMatrix := make(map[int][]string, 0)
 	var cipherMatrix [][]string
 	message := strings.Split(msg, "")
@@ -100,78 +98,4 @@ func (h *EncryptionHandler) initializeCipherMatrix(msg string, key []int, row, c
 	}
 
 	return keyedCipherMatrix
-}
-
-func (h *EncryptionHandler) Encode(obj models.EncryptData) (string, error) {
-	data, err := h.constructor(obj)
-	if err != nil {
-		return "", err
-	}
-
-	cipherMatrix := h.initializeCipherMatrix(obj.Value, data.TransPosKey, data.RowSize, data.ColumnSize)
-	//Get internal private key
-	privateKey := internal.PrivateKey(obj.Key)
-	keys := models.Internal{
-		OriginalKey: obj.Key,
-		InternalKey: privateKey,
-	}
-
-	encodedMessage := ""
-	for index := 0; index < data.RowSize; index++ {
-		for col := 0; col < len(cipherMatrix); col++ {
-			char := []byte(cipherMatrix[col][index])[0] + 1
-			encodedMessage += string(char)
-		}
-	}
-
-	dbHandler := database.DbHandler{}
-	dbHandler.AddInternalKey(keys)
-	encodedMessage = privateKey + encodedMessage
-	return encodedMessage, nil
-}
-
-func (h *EncryptionHandler) Decode(obj models.EncryptData) (string, error) {
-	data, err := h.constructor(obj)
-	if err != nil {
-		println("error occurred - ", err)
-		return "", err
-	}
-
-	dbHandler := database.DbHandler{}
-	internalPrivateKey, err := dbHandler.GetInternalKey(obj.Key)
-	if err != nil {
-		return "", err
-	}
-
-	if internalPrivateKey == nil {
-		return obj.Value, nil
-	}
-
-	privateKey := obj.Value[0:8]
-	if privateKey != internalPrivateKey.InternalKey {
-		return obj.Value, nil
-	} else {
-		obj.Value = obj.Value[8:]
-	}
-
-	cipheredMatrix := h.initializeCipherMatrix(obj.Value, data.NumericKey, data.RowSize, data.ColumnSize)
-
-	var matrixBuffer [][]string
-	for _, val := range data.TransPosKey {
-		if char, ok := cipheredMatrix[val]; ok {
-			matrixBuffer = append(matrixBuffer, char)
-		}
-	}
-
-	msgBuffer := ""
-	for index := 0; index < data.RowSize; index++ {
-		for j := 0; j < len(matrixBuffer); j++ {
-			if matrixBuffer[j][index] != " " {
-				char := []byte(matrixBuffer[j][index])[0] - 1
-				msgBuffer += string(char)
-			}
-		}
-	}
-	decodedMsg := strings.TrimRight(msgBuffer, " ")
-	return decodedMsg, nil
 }
