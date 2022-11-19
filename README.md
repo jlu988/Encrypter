@@ -25,3 +25,5 @@ This is a sample encoder and decoder service that takes two parameters
 * Output
 
 The result for encoding the message 'important message' using key 6Cat9w is 'rimptomante essa g'
+
+    * AWS dynamoDb is required for internal key

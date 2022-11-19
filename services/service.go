@@ -9,76 +9,94 @@ import (
 	"strings"
 )
 
-type EncryptionServices struct{}
+var (
+	re = regexp.MustCompile("^[0-9]+")
+)
 
-var re = regexp.MustCompile("^[0-9]+")
-
-func sortString(message string) string {
-	s := strings.Split(message, "")
-	sort.Strings(s)
-	return strings.Join(s, "")
+type Service struct {
+	encryptData    models.EncryptData
+	encryptDetails models.EncryptDetails
 }
 
-func validateKey(key []byte) error {
-	valid, err := regexp.MatchString("^[a-z0-9A-Z]+$", string(key))
-	errMsg := fmt.Errorf("invalid key - should be unique, only letters and digits")
-	if err != nil {
+func (s Service) sortKey() string {
+	str := strings.Split(s.encryptData.Key, "")
+	sort.Strings(str)
+	return strings.Join(str, "")
+}
+
+func (s Service) keyValidation() error {
+	invalidMsg := fmt.Errorf("key should be unique, only letters and digits")
+	//Check for any non letters and digits
+	key := s.encryptData.Key
+	if valid, err := regexp.MatchString("^[a-z0-9A-Z]+$", key); err != nil {
 		return err
-	}
-	if !valid {
-		return errMsg
+	} else if !valid {
+		return invalidMsg
 	}
 
-	for index := 0; index < len(key)-1; index++ {
-		if key[index] == key[index+1] {
-			return errMsg
+	if len(s.encryptData.Value) < len(s.encryptData.Key) {
+		return fmt.Errorf("message cannot be shorter than key")
+	}
+
+	for charPos := 0; charPos < len(key)-1; charPos++ {
+		if key[charPos] == key[charPos+1] {
+			return invalidMsg
 		}
 	}
 	return nil
 }
 
-func constructor(obj models.EncryptData) (*models.EncryptDetails, error) {
-	data := models.EncryptDetails{}
-	data.ColumnSize = len(obj.Key)
-	data.RowSize = int(math.Ceil(float64(len(obj.Value)) / float64(data.ColumnSize)))
+func (s Service) getMatrixSize() (int, int) {
+	columnSize := len(s.encryptData.Key)
+	rowSize := int(math.Ceil(float64(len(s.encryptData.Value)) / float64(columnSize)))
+	return columnSize, rowSize
+}
 
-	keyString := sortString(obj.Key)
-	if err := validateKey([]byte(keyString)); err != nil {
+func (s Service) constructor(obj models.EncryptData) (*models.EncryptDetails, error) {
+	s.encryptData = obj
+	s.encryptDetails = models.EncryptDetails{}
+	s.encryptDetails.ColumnSize, s.encryptDetails.RowSize = s.getMatrixSize()
+
+	if err := s.keyValidation(); err != nil {
 		return nil, err
 	}
 
-	if len(obj.Value) < len(obj.Key) {
-		return nil, fmt.Errorf("message cannot be shorter than key")
-	}
-
-	data.OriginalKey = make(map[byte]int)
+	s.encryptDetails.KeyMap = make(map[byte]int)
 	for index, val := range obj.Key {
-		data.OriginalKey[byte(val)] = index
-		data.NumericKey = append(data.NumericKey, index)
+		s.encryptDetails.KeyMap[byte(val)] = index
+		s.encryptDetails.NumericKey = append(s.encryptDetails.NumericKey, index)
 	}
 
-	numIndex := re.FindAllSubmatchIndex([]byte(keyString), -1)[0][1]
-
-	buffer := strings.Split(keyString, "")
-	sortedKey := strings.Join(buffer[numIndex:], "") + strings.Join(buffer[:numIndex], "")
-
+	sortedKey := ""
+	valid, err := regexp.MatchString("^[0-9]+$", obj.Key)
+	if err != nil {
+		return nil, err
+	}
+	if valid {
+		lastNumIndex := re.FindAllSubmatchIndex([]byte(s.sortKey()), -1)[0][1]
+		stringBuffer := strings.Split(s.sortKey(), "")
+		sortedKey = strings.Join(stringBuffer[lastNumIndex:], "") + strings.Join(stringBuffer[:lastNumIndex], "")
+	} else {
+		sortedKey = s.sortKey()
+	}
 	for index := 0; index < len(sortedKey); index++ {
-		if val, ok := data.OriginalKey[sortedKey[index]]; ok {
-			data.TransPosKey = append(data.TransPosKey, val)
+		if val, ok := s.encryptDetails.KeyMap[sortedKey[index]]; ok {
+			s.encryptDetails.TransPosKey = append(s.encryptDetails.TransPosKey, val)
 		}
 	}
-	return &data, nil
+
+	return &s.encryptDetails, nil
 }
 
-func initializeCipherMatrix(msg string, key []int, row, col int) map[int][]string {
+func (s Service) initializeCipherMatrix(msg string, key []int, rowSize, colSize int) map[int][]string {
 	keyedCipherMatrix := make(map[int][]string, 0)
 	var cipherMatrix [][]string
 	message := strings.Split(msg, "")
 
 	valuePosition := 0
-	for index := 0; index < row; index++ {
+	for rowPos := 0; rowPos < rowSize; rowPos++ {
 		var matrixRow []string
-		for j := 0; j < col; j++ {
+		for colPos := 0; colPos < colSize; colPos++ {
 			if valuePosition != len(msg) {
 				matrixRow = append(matrixRow, message[valuePosition])
 				valuePosition++
@@ -89,6 +107,7 @@ func initializeCipherMatrix(msg string, key []int, row, col int) map[int][]strin
 		cipherMatrix = append(cipherMatrix, matrixRow)
 	}
 
+	//key pair slice
 	for keyIndex := 0; keyIndex < len(key); keyIndex++ {
 		var columnSlice []string
 		for index := 0; index < len(cipherMatrix); index++ {
@@ -96,6 +115,5 @@ func initializeCipherMatrix(msg string, key []int, row, col int) map[int][]strin
 		}
 		keyedCipherMatrix[key[keyIndex]] = columnSlice
 	}
-
 	return keyedCipherMatrix
 }

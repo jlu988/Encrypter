@@ -1,17 +1,18 @@
 package handler
 
 import (
-	"Encrypter/domain"
+	"Encrypter/database"
+	"Encrypter/internal"
 	"Encrypter/models"
+	"Encrypter/services"
 	"net/http"
 
 	"github.com/gorilla/schema"
 )
 
-func Encoder(w http.ResponseWriter, r *http.Request) {
+func Encryption(w http.ResponseWriter, r *http.Request) {
 	var (
-		encryptionService = domain.EncryptionHandler{}
-		data              = models.EncryptData{}
+		data = models.EncryptData{}
 	)
 
 	decoder := schema.NewDecoder()
@@ -19,8 +20,8 @@ func Encoder(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		Response(w, http.StatusInternalServerError, err.Error())
 	}
-
-	encodedMsg, err := encryptionService.Encode(data)
+	internalPrivateKey := internal.GeneratePrivateKey(data.Key)
+	encodedMsg, err := services.Encode(data, internalPrivateKey)
 	if err != nil {
 		Response(w, http.StatusBadRequest, err.Error())
 		return
@@ -28,18 +29,21 @@ func Encoder(w http.ResponseWriter, r *http.Request) {
 	ResponseOk(w, encodedMsg)
 }
 
-func Decoder(w http.ResponseWriter, r *http.Request) {
+func Decryption(w http.ResponseWriter, r *http.Request) {
 	var (
-		encryptionService = domain.EncryptionHandler{}
-		data              = models.EncryptData{}
+		data = models.EncryptData{}
 	)
 	decoder := schema.NewDecoder()
 	err := decoder.Decode(&data, r.URL.Query())
 	if err != nil {
 		Response(w, http.StatusInternalServerError, err.Error())
 	}
-
-	decodedMsg, err := encryptionService.Decode(data)
+	dbHandler := database.DbHandler{}
+	internalPrivateKey, err := dbHandler.GetInternalKey(data.Key)
+	if err != nil {
+		Response(w, http.StatusInternalServerError, err.Error())
+	}
+	decodedMsg, err := services.Decrypt(data, internalPrivateKey.InternalKey)
 	if err != nil {
 		Response(w, http.StatusBadRequest, err.Error())
 		return

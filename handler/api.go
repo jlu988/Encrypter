@@ -6,7 +6,7 @@ import (
 
 func RouterInitialize() *mux.Router {
 	r := mux.NewRouter()
-	r.HandleFunc("/encoder", Encoder).Methods("GET")
-	r.HandleFunc("/decoder", Decoder).Methods("GET")
+	r.HandleFunc("/encrypt", Encryption).Methods("GET")
+	r.HandleFunc("/decrypt", Decryption).Methods("GET")
 	return r
 }

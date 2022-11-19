@@ -9,5 +9,5 @@ import (
 func main() {
 	router := handler.RouterInitialize()
 	fmt.Println("Listen and serve")
-	http.ListenAndServe(":8080", router)
+	http.ListenAndServe(":8000", router)
 }

@@ -1,0 +1,18 @@
+services:
+  encryption-backend:
+    build: .
+    working_dir: /app/encrypter
+    volumes:
+    - $HOME/.aws/credentials:/home/app/.aws/credentials:ro
+    ports:
+      - 8100:8000
+    networks:
+      - services
+
+networks:
+  services:
+
+volumes:
+  go_mod_cache:
+  go_cache:
+  go_bin:

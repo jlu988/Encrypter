@@ -7,7 +7,7 @@ type EncryptData struct {
 
 type EncryptDetails struct {
 	InternalKey map[string]string
-	OriginalKey map[byte]int
+	KeyMap      map[byte]int
 	NumericKey  []int
 	TransPosKey []int
 	ColumnSize  int

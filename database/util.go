@@ -9,35 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
 )
 
-func (db *DbHandler) CreateTable() error {
-	_, err := dynamo.CreateTable(
-		&dynamodb.CreateTableInput{
-			AttributeDefinitions: []*dynamodb.AttributeDefinition{
-				{
-					AttributeName: aws.String("OriginalKey"),
-					AttributeType: aws.String("S"),
-				},
-			},
-			KeySchema: []*dynamodb.KeySchemaElement{
-				{
-					AttributeName: aws.String("OriginalKey"),
-					KeyType:       aws.String("HASH"),
-				},
-			},
-			ProvisionedThroughput: &dynamodb.ProvisionedThroughput{
-				ReadCapacityUnits:  aws.Int64(10),
-				WriteCapacityUnits: aws.Int64(10),
-			},
-
-			TableName: aws.String(tableName),
-		})
-	if err != nil {
-		return fmt.Errorf("error creating table: %+v", err)
-	}
-
-	return nil
-}
-
 func (dh *DbHandler) AddInternalKey(keys models.Internal) error {
 	_, err := dynamo.PutItem(&dynamodb.PutItemInput{
 		Item: map[string]*dynamodb.AttributeValue{
